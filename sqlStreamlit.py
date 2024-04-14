@@ -187,14 +187,35 @@ df_sales.set_index('SalesOrderID', inplace=True)
 df_sales.drop(['ModifiedDate', 'rowguid', 'Comment', 'ShipMethodID', 'ShipToAddressID', 'BillToAddressID', 'SalesPersonID', 'RevisionNumber', 'Status', 
                'SalesOrderNumber', 'PurchaseOrderNumber', 'CustomerID', 'CreditCardID', 'TerritoryID', 'CreditCardApprovalCode', 'CurrencyRateID'], axis=1 ,inplace=True)
 
+#------------------------------------------------CONVERT DATATYPE FOR EACH COLUMNS---------------------------------------------------------
+
+#Convert each columns data type to the correct data type
+df_sales['OrderDate'] = pd.to_datetime(df_sales['OrderDate'])
+df_sales['DueDate'] = pd.to_datetime(df_sales['DueDate'])
+df_sales['ShipDate'] = pd.to_datetime(df_sales['ShipDate'])
+df_sales['SubTotal'] = df_sales['SubTotal'].astype(float)
+df_sales['TaxAmt'] = df_sales['TaxAmt'].astype(float)
+df_sales['Freight'] = df_sales['Freight'].astype(float)
+df_sales['TotalDue'] = df_sales['TotalDue'].astype(float)
+
+#--------------------------------------------------WIDEGET FOR SALES----------------------------------------------------------------
+
+st.sidebar.header('Filtering Sales')
+
+unique_years = df_sales['OrderDate'].dt.year.unique()
+unique_years.sort()
+
+#Filter the sales by year
+sales_per_year = st.sidebar.multiselect('Filter order by year:', 
+                                        options=unique_years)
+
+if sales_per_year:
+    df_sales = df_sales[df_sales['OrderDate'].dt.year.isin(sales_per_year)]
+
 #Clean up the 'OrderDate', 'DueDate' and 'ShipDate' column to just the date
 df_sales['OrderDate'] = pd.to_datetime(df_sales['OrderDate']).dt.date
 df_sales['DueDate'] = pd.to_datetime(df_sales['DueDate']).dt.date
 df_sales['ShipDate'] = pd.to_datetime(df_sales['ShipDate']).dt.date
-
-
-
-
 
 #--------------------------------------------------CHART FOR SALES----------------------------------------------------------------
 
@@ -212,7 +233,7 @@ online_offline_barchart = px.bar(order_counts,
                               title="Online vs Offline Orders",
                               labels={'OrderType': 'Order Type', 'Count': 'Amount of Orders'},
                               orientation='v',
-                              height=800)
+                              height=400)
 
 st.dataframe(df_sales)
 
