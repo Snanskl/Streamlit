@@ -8,4 +8,3 @@ Currently, the Streamlit dashboard displays data from the **'Production.Products
 <br>
 
 Stay tuned for the upcoming deployment of this project as a web application hosted on Streamlit.
-

@@ -23,7 +23,9 @@ df = pd.read_sql_query("SELECT * FROM Production.Product", cnxn)
 #Set up the streamlit page
 st.set_page_config(page_title="Dashbarods for AdventureWorks2019",
                    page_icon = ":moneybag:",
-                   layout= "wide")
+                   layout= "wide",
+                   menu_items={'About': 'This is a dashboard for AdventureWorks2019 database. It shows the products and sales data.'})
+
 
 #Set index to ProductID. inplace=True means that the changes will be made to the original dataframe
 df.set_index('ProductID', inplace=True)
@@ -188,11 +190,12 @@ df_sales.drop(['ModifiedDate', 'rowguid', 'Comment', 'ShipMethodID', 'ShipToAddr
                'SalesOrderNumber', 'PurchaseOrderNumber', 'CustomerID', 'CreditCardID', 'TerritoryID', 'CreditCardApprovalCode', 'CurrencyRateID'], axis=1 ,inplace=True)
 
 #------------------------------------------------CONVERT DATATYPE FOR EACH COLUMNS---------------------------------------------------------
+#Clean up the 'OrderDate', 'DueDate' and 'ShipDate' column to just the date
+df_sales['OrderDate'] = pd.to_datetime(df_sales['OrderDate']).dt.date
+df_sales['DueDate'] = pd.to_datetime(df_sales['DueDate']).dt.date
+df_sales['ShipDate'] = pd.to_datetime(df_sales['ShipDate']).dt.date
 
 #Convert each columns data type to the correct data type
-df_sales['OrderDate'] = pd.to_datetime(df_sales['OrderDate'])
-df_sales['DueDate'] = pd.to_datetime(df_sales['DueDate'])
-df_sales['ShipDate'] = pd.to_datetime(df_sales['ShipDate'])
 df_sales['SubTotal'] = df_sales['SubTotal'].astype(float)
 df_sales['TaxAmt'] = df_sales['TaxAmt'].astype(float)
 df_sales['Freight'] = df_sales['Freight'].astype(float)
@@ -202,23 +205,25 @@ df_sales['TotalDue'] = df_sales['TotalDue'].astype(float)
 
 st.sidebar.header('Filtering Sales')
 
-unique_years = df_sales['OrderDate'].dt.year.unique()
+unique_years = pd.to_datetime(df_sales['OrderDate']).dt.year.unique()
 unique_years.sort()
 
 #Filter the sales by year
+#Earlier I have write this line like this ->multiselect('Filter order by year:', options=df_sales['OrderDate']).dt.year.unique()
+#Which raised an error since we cannot apply .dt directly on to the list object, the .dt must be used with the pandas series that contained 
+#the datetime object.
 sales_per_year = st.sidebar.multiselect('Filter order by year:', 
                                         options=unique_years)
 
 if sales_per_year:
-    df_sales = df_sales[df_sales['OrderDate'].dt.year.isin(sales_per_year)]
-
-#Clean up the 'OrderDate', 'DueDate' and 'ShipDate' column to just the date
-df_sales['OrderDate'] = pd.to_datetime(df_sales['OrderDate']).dt.date
-df_sales['DueDate'] = pd.to_datetime(df_sales['DueDate']).dt.date
-df_sales['ShipDate'] = pd.to_datetime(df_sales['ShipDate']).dt.date
+    df_sales_filtered = df_sales[pd.to_datetime(df_sales['OrderDate']).dt.year.isin(sales_per_year)]
+    st.dataframe(df_sales_filtered)
 
 #--------------------------------------------------CHART FOR SALES----------------------------------------------------------------
+#Showing the table first
+st.dataframe(df_sales)
 
+#---------------BAR CHART---------------------
 #Count amount of Online and Offline orders
 order_counts = df_sales['OnlineOrderFlag'].value_counts().reset_index()
 
@@ -235,6 +240,44 @@ online_offline_barchart = px.bar(order_counts,
                               orientation='v',
                               height=400)
 
-st.dataframe(df_sales)
-
+#Displaying bar chart
 st.plotly_chart(online_offline_barchart)
+
+#--------------------------------------------------SALES KPI's---------------------------------------------------------
+st.title("Sales KPI's")
+st.markdown("Here you can find the KPI's for the sales.")
+
+#Temporarily convert the OrderDate to datetime object for the calculation
+temp_dates = pd.to_datetime(df_sales['OrderDate'])
+
+#Make a month in OrderDate to be unique and sort it
+unique_month = temp_dates.dt.month_name().unique()
+unique_month.sort()
+
+#Group the month by its name and sum the TotalDue
+#idxmax is used to get the index of the maximum value in the series
+monthly_sales = df_sales.groupby(temp_dates.dt.month_name())['TotalDue'].sum()
+best_sales_month = monthly_sales.idxmax()
+best_sales_amount = monthly_sales.max()
+
+#idxmin find the index of the minimum value in the series
+least_sales_month = monthly_sales.idxmin()
+least_sales_amount = monthly_sales.min()
+
+
+#declare two columns
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader('Best Sales Month')
+    st.subheader(f"Month: {best_sales_month}")
+    st.subheader(f"Amount: ${best_sales_amount:,.2f}")
+with col2:
+    st.subheader('Least Sales Amount')
+    st.subheader(f"Month: {least_sales_month}")
+    st.subheader(f"Amount: ${least_sales_amount:,.2f}")
+
+
+
+
+
